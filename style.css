@@ -1,422 +1,238 @@
-const gameArea = document.getElementById("game-area");
-const player = document.getElementById("player");
-const startBtn = document.getElementById("start-btn");
-const levelSpan = document.getElementById("level");
-const timeSpan = document.getElementById("time");
-const attemptsSpan = document.getElementById("attempts");
-const messageP = document.getElementById("message");
-
-let gameRunning = false;
-let currentLevel = 1;
-const maxLevel = 30;
-let attempts = 0;
-
-let timeLeft = 0;
-let timerInterval = null;
-let animationFrameId = null;
-
-// Joueur
-let playerX = 0;
-let playerY = 0;
-const playerSize = 26;
-let playerSpeed = 3.2;
-
-// Ennemis
-let enemies = [];
-
-// Détection tactile
-const isTouchDevice =
-  "ontouchstart" in window || navigator.maxTouchPoints > 0;
-
-// Entrées clavier (PC)
-const keysPressed = {
-  ArrowUp: false,
-  ArrowDown: false,
-  ArrowLeft: false,
-  ArrowRight: false,
-};
-
-// ─────────────────────────────────────────────
-//  CONFIG NIVEAUX (plus dur + ennemis suiveurs)
-// ─────────────────────────────────────────────
-function getLevelConfig(level) {
-  const isRush = level % 5 === 0; // tous les 5 niveaux : niveau "rage"
-
-  // nombre d'ennemis augmente vite
-  const enemyCount = Math.min(3 + Math.floor(level * 0.7) + (isRush ? 2 : 0), 16);
-
-  // vitesse de base qui monte bien
-  const baseSpeed = 1.8 + level * 0.25 + (isRush ? 1.0 : 0);
-
-  // durée à tenir
-  const duration = isRush ? 8 + Math.floor(level / 4) : 10 + Math.floor(level / 3);
-
-  // taille ennemis : plus le niveau est haut, plus ils sont petits
-  const enemySize = Math.max(26 - Math.floor(level / 2), 12);
-
-  // vitesse du joueur légèrement augmentée avec le niveau
-  const playerSpeedBoost = 3.2 + level * 0.06;
-
-  // à partir du niveau 5, on ajoute des ennemis qui te suivent
-  const chaserCount = level >= 5 ? Math.min(1 + Math.floor(level / 5), enemyCount - 1) : 0;
-
-  return {
-    enemyCount,
-    enemyMinSpeed: baseSpeed * 0.8,
-    enemyMaxSpeed: baseSpeed * 1.3,
-    duration,
-    enemySize,
-    playerSpeed: playerSpeedBoost,
-    chaserCount,
-  };
+/* RESET */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-// ─────────────────────────────────────────────
-//  JOUEUR
-// ─────────────────────────────────────────────
-function centerPlayer() {
-  const rect = gameArea.getBoundingClientRect();
-  playerX = rect.width / 2 - playerSize / 2;
-  playerY = rect.height / 2 - playerSize / 2;
-  updatePlayerPosition();
+body {
+  background: radial-gradient(circle at top, #111827 0%, #020617 50%, #000 100%);
+  color: #e5e7eb;
+  min-height: 100vh;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior: none;
+  touch-action: none;
 }
 
-function updatePlayerPosition() {
-  player.style.left = `${playerX}px`;
-  player.style.top = `${playerY}px`;
+/* Effet scanlines / glow pour le côté arcade */
+.scanlines {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.03),
+    rgba(255, 255, 255, 0.03) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: soft-light;
+  opacity: 0.35;
+  z-index: 1;
 }
 
-// Déplacement au clavier (PC)
-function updatePlayerFromKeys() {
-  if (!gameRunning) return;
-
-  const rect = gameArea.getBoundingClientRect();
-  let dx = 0;
-  let dy = 0;
-
-  if (keysPressed.ArrowUp) dy -= playerSpeed;
-  if (keysPressed.ArrowDown) dy += playerSpeed;
-  if (keysPressed.ArrowLeft) dx -= playerSpeed;
-  if (keysPressed.ArrowRight) dx += playerSpeed;
-
-  playerX += dx;
-  playerY += dy;
-
-  clampPlayer(rect);
-  updatePlayerPosition();
+.glow-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.2), transparent 60%),
+    radial-gradient(circle at 80% 80%, rgba(244, 63, 94, 0.2), transparent 60%);
+  z-index: 0;
 }
 
-// Déplacement au doigt (tactile)
-function handleTouchMove(e) {
-  if (!gameRunning) return;
-  e.preventDefault(); // évite le scroll de la page
-
-  const rect = gameArea.getBoundingClientRect();
-  const touch = e.touches[0];
-  if (!touch) return;
-
-  const x = touch.clientX - rect.left - playerSize / 2;
-  const y = touch.clientY - rect.top - playerSize / 2;
-
-  playerX = x;
-  playerY = y;
-
-  clampPlayer(rect);
-  updatePlayerPosition();
+/* CONTENU PRINCIPAL */
+.wrapper {
+  position: relative;
+  z-index: 2;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 12px 16px 18px;
 }
 
-// Empêche de sortir de l'arène
-function clampPlayer(rect) {
-  if (playerX < 0) playerX = 0;
-  if (playerY < 0) playerY = 0;
-  if (playerX > rect.width - playerSize) playerX = rect.width - playerSize;
-  if (playerY > rect.height - playerSize) playerY = rect.height - playerSize;
+header {
+  text-align: center;
+  margin-bottom: 10px;
 }
 
-// ─────────────────────────────────────────────
-//  ENNEMIS
-// ─────────────────────────────────────────────
-function createEnemy(config, type = "bouncer") {
-  const rect = gameArea.getBoundingClientRect();
-  const enemyEl = document.createElement("div");
-  enemyEl.className = "enemy";
-  enemyEl.style.width = `${config.enemySize}px`;
-  enemyEl.style.height = `${config.enemySize}px`;
+header h1 {
+  font-family: "Courier New", monospace;
+  letter-spacing: 0.2em;
+  font-size: 1.8rem;
+  color: #f97316;
+  text-shadow:
+    0 0 8px rgba(249, 115, 22, 0.8),
+    0 0 18px rgba(249, 115, 22, 0.5);
+  margin-bottom: 8px;
+}
 
-  const side = Math.floor(Math.random() * 4);
-  let x, y;
+header p {
+  color: #e5e7eb;
+}
 
-  if (side === 0) {
-    x = -config.enemySize;
-    y = Math.random() * (rect.height - config.enemySize);
-  } else if (side === 1) {
-    x = rect.width + config.enemySize;
-    y = Math.random() * (rect.height - config.enemySize);
-  } else if (side === 2) {
-    x = Math.random() * (rect.width - config.enemySize);
-    y = -config.enemySize;
-  } else {
-    x = Math.random() * (rect.width - config.enemySize);
-    y = rect.height + config.enemySize;
+header .small {
+  font-size: 0.82rem;
+  color: #9ca3af;
+  margin-top: 3px;
+}
+
+/* HUD */
+.hud {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.hud-item {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: radial-gradient(circle at top, #0f172a, #020617);
+  box-shadow: 0 0 10px rgba(15, 23, 42, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #9ca3af;
+}
+
+.hud-item span:last-child {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+/* CARTE DU JEU */
+.game-card {
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: radial-gradient(circle at top, rgba(15, 23, 42, 0.95), rgba(2, 6, 23, 0.98));
+  box-shadow:
+    0 0 25px rgba(15, 23, 42, 0.9),
+    0 0 45px rgba(0, 0, 0, 1);
+  padding: 10px;
+}
+
+.game-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+/* BOUTON START */
+button {
+  border: none;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #22c55e, #22d3ee);
+  color: #022c22;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.7);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.15s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 24px rgba(34, 197, 94, 1);
+}
+
+button:active {
+  transform: translateY(0);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* MESSAGE */
+.message {
+  font-size: 0.8rem;
+  color: #e5e7eb;
+  text-align: right;
+}
+
+/* ZONE DE JEU */
+#game-area {
+  margin-top: 6px;
+  width: 100%;
+  height: 430px;
+  border-radius: 14px;
+  border: 2px solid rgba(148, 163, 184, 0.8);
+  background:
+    radial-gradient(circle at 10% 0%, rgba(56, 189, 248, 0.18), transparent 60%),
+    radial-gradient(circle at 90% 100%, rgba(244, 63, 94, 0.2), transparent 60%),
+    #020617;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 0 30px rgba(15, 23, 42, 0.9),
+    0 0 50px rgba(0, 0, 0, 1);
+  touch-action: none;
+}
+
+/* JOUEUR */
+#player {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #f9fafb 0%, #22d3ee 40%, #22c55e 80%);
+  box-shadow:
+    0 0 10px rgba(34, 211, 238, 0.9),
+    0 0 18px rgba(34, 197, 94, 0.9);
+}
+
+/* ENNEMIS */
+.enemy {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #f9fafb 0%, #f97316 30%, #ef4444 90%);
+  box-shadow:
+    0 0 10px rgba(248, 113, 113, 0.8),
+    0 0 18px rgba(249, 115, 22, 0.9);
+}
+
+/* FOOTER */
+footer {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+/* RESPONSIVE MOBILE */
+@media (max-width: 700px) {
+  .wrapper {
+    padding: 8px 8px 14px;
   }
 
-  enemyEl.style.left = `${x}px`;
-  enemyEl.style.top = `${y}px`;
-  gameArea.appendChild(enemyEl);
-
-  const angle = Math.random() * Math.PI * 2;
-  const speed =
-    config.enemyMinSpeed +
-    Math.random() * (config.enemyMaxSpeed - config.enemyMinSpeed);
-
-  const vx = Math.cos(angle) * speed;
-  const vy = Math.sin(angle) * speed;
-
-  enemies.push({
-    el: enemyEl,
-    x,
-    y,
-    vx,
-    vy,
-    size: config.enemySize,
-    maxSpeed: config.enemyMaxSpeed * (type === "chaser" ? 1.4 : 1.0),
-    type,
-  });
-}
-
-function createEnemies(config) {
-  enemies.forEach((e) => e.el.remove());
-  enemies = [];
-
-  // ennemis qui suivent
-  for (let i = 0; i < config.chaserCount; i++) {
-    createEnemy(config, "chaser");
-  }
-  // ennemis rebondissants
-  const remaining = config.enemyCount - config.chaserCount;
-  for (let i = 0; i < remaining; i++) {
-    createEnemy(config, "bouncer");
-  }
-}
-
-function updateEnemies() {
-  const rect = gameArea.getBoundingClientRect();
-
-  enemies.forEach((enemy) => {
-    // comportement spécial pour les "chasers"
-    if (enemy.type === "chaser") {
-      const targetX = playerX + playerSize / 2;
-      const targetY = playerY + playerSize / 2;
-      const enemyCenterX = enemy.x + enemy.size / 2;
-      const enemyCenterY = enemy.y + enemy.size / 2;
-
-      let dx = targetX - enemyCenterX;
-      let dy = targetY - enemyCenterY;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-
-      dx /= dist;
-      dy /= dist;
-
-      // accélération vers le joueur (plus forte aux niveaux élevés)
-      const accel = 0.05 + currentLevel * 0.004;
-      enemy.vx += dx * accel;
-      enemy.vy += dy * accel;
-
-      // limite de vitesse
-      const speed = Math.sqrt(enemy.vx * enemy.vx + enemy.vy * enemy.vy);
-      if (speed > enemy.maxSpeed) {
-        enemy.vx = (enemy.vx / speed) * enemy.maxSpeed;
-        enemy.vy = (enemy.vy / speed) * enemy.maxSpeed;
-      }
-    }
-
-    enemy.x += enemy.vx;
-    enemy.y += enemy.vy;
-
-    // rebond sur les bords
-    if (enemy.x <= 0) {
-      enemy.x = 0;
-      enemy.vx *= -1;
-    }
-    if (enemy.x >= rect.width - enemy.size) {
-      enemy.x = rect.width - enemy.size;
-      enemy.vx *= -1;
-    }
-    if (enemy.y <= 0) {
-      enemy.y = 0;
-      enemy.vy *= -1;
-    }
-    if (enemy.y >= rect.height - enemy.size) {
-      enemy.y = rect.height - enemy.size;
-      enemy.vy *= -1;
-    }
-
-    enemy.el.style.left = `${enemy.x}px`;
-    enemy.el.style.top = `${enemy.y}px`;
-  });
-}
-
-// ─────────────────────────────────────────────
-//  COLLISIONS
-// ─────────────────────────────────────────────
-function checkCollisions() {
-  const playerRect = player.getBoundingClientRect();
-  const playerCenterX = playerRect.left + playerRect.width / 2;
-  const playerCenterY = playerRect.top + playerRect.height / 2;
-  const playerRadius = playerRect.width / 2;
-
-  for (const enemy of enemies) {
-    const enemyRect = enemy.el.getBoundingClientRect();
-    const enemyCenterX = enemyRect.left + enemyRect.width / 2;
-    const enemyCenterY = enemyRect.top + enemyRect.height / 2;
-    const enemyRadius = enemyRect.width / 2;
-
-    const dx = playerCenterX - enemyCenterX;
-    const dy = playerCenterY - enemyCenterY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    if (distance < playerRadius + enemyRadius * 0.9) {
-      onPlayerHit();
-      break;
-    }
-  }
-}
-
-function onPlayerHit() {
-  if (!gameRunning) return;
-
-  attempts++;
-  attemptsSpan.textContent = attempts.toString();
-  endLevel(false);
-}
-
-// ─────────────────────────────────────────────
-//  GAME LOOP
-// ─────────────────────────────────────────────
-function gameLoop() {
-  if (!gameRunning) return;
-
-  if (!isTouchDevice) {
-    updatePlayerFromKeys();
+  header h1 {
+    font-size: 1.4rem;
   }
 
-  updateEnemies();
-  checkCollisions();
+  .hud {
+    flex-direction: column;
+  }
 
-  animationFrameId = requestAnimationFrame(gameLoop);
-}
-
-// ─────────────────────────────────────────────
-//  NIVEAUX
-// ─────────────────────────────────────────────
-function startLevel(level) {
-  const config = getLevelConfig(level);
-
-  levelSpan.textContent = level.toString();
-  timeLeft = config.duration;
-  timeSpan.textContent = timeLeft.toString();
-
-  messageP.textContent = isTouchDevice
-    ? `Niveau ${level} — Survis ${config.duration}s. Déplace la boule avec ton doigt.`
-    : `Niveau ${level} — Survis ${config.duration}s. Déplace la boule avec les flèches.`;
-
-  playerSpeed = config.playerSpeed;
-
-  centerPlayer();
-  createEnemies(config);
-
-  clearInterval(timerInterval);
-  timerInterval = setInterval(() => {
-    if (!gameRunning) return;
-    timeLeft--;
-    timeSpan.textContent = timeLeft.toString();
-
-    if (timeLeft <= 0) {
-      endLevel(true);
-    }
-  }, 1000);
-
-  cancelAnimationFrame(animationFrameId);
-  gameRunning = true;
-  animationFrameId = requestAnimationFrame(gameLoop);
-}
-
-function endLevel(success) {
-  gameRunning = false;
-  clearInterval(timerInterval);
-  cancelAnimationFrame(animationFrameId);
-
-  if (success) {
-    if (currentLevel >= maxLevel) {
-      messageP.textContent =
-        "INCROYABLE 😱 Tu as terminé le niveau 30 !";
-      startBtn.disabled = false;
-      startBtn.textContent = "Rejouer au niveau 1";
-      currentLevel = 1;
-    } else {
-      currentLevel++;
-      messageP.textContent =
-        `Bravo ! Niveau ${currentLevel} débloqué. Clique sur START pour continuer.`;
-      startBtn.disabled = false;
-      startBtn.textContent = "Niveau suivant";
-    }
-  } else {
-    messageP.textContent =
-      `Touché... Tu dois recommencer le niveau ${currentLevel}. 😈`;
-    startBtn.disabled = false;
-    startBtn.textContent = "Recommencer le niveau";
+  #game-area {
+    height: 70vh;
   }
 }
-
-// ─────────────────────────────────────────────
-//  ÉVÈNEMENTS
-// ─────────────────────────────────────────────
-startBtn.addEventListener("click", () => {
-  startBtn.disabled = true;
-  messageP.textContent = "";
-  startLevel(currentLevel);
-});
-
-window.addEventListener("keydown", (e) => {
-  if (e.key in keysPressed) {
-    keysPressed[e.key] = true;
-  }
-});
-
-window.addEventListener("keyup", (e) => {
-  if (e.key in keysPressed) {
-    keysPressed[e.key] = false;
-  }
-});
-
-// Tactile
-gameArea.addEventListener(
-  "touchstart",
-  (e) => {
-    if (!gameRunning) return;
-    handleTouchMove(e);
-  },
-  { passive: false }
-);
-
-gameArea.addEventListener(
-  "touchmove",
-  (e) => {
-    if (!gameRunning) return;
-    handleTouchMove(e);
-  },
-  { passive: false }
-);
-
-// Init
-window.addEventListener("load", () => {
-  centerPlayer();
-  levelSpan.textContent = currentLevel.toString();
-  timeSpan.textContent = "0";
-  attemptsSpan.textContent = attempts.toString();
-
-  messageP.textContent = isTouchDevice
-    ? "Clique sur START puis déplace la boule avec ton doigt."
-    : "Clique sur START pour commencer au niveau 1 (flèches du clavier).";
-});
 

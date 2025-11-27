@@ -1,0 +1,225 @@
+/* RESET */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* FOND GÉNÉRAL ARCADE */
+body {
+  background: radial-gradient(circle at top, #111827 0%, #020617 50%, #000 100%);
+  color: #e5e7eb;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* Effet scanlines / glow pour le côté arcade */
+.scanlines {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.03),
+    rgba(255, 255, 255, 0.03) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: soft-light;
+  opacity: 0.35;
+  z-index: 1;
+}
+
+.glow-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.2), transparent 60%),
+    radial-gradient(circle at 80% 80%, rgba(244, 63, 94, 0.2), transparent 60%);
+  z-index: 0;
+}
+
+/* CONTENU PRINCIPAL */
+.wrapper {
+  position: relative;
+  z-index: 2;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+header h1 {
+  font-family: "Courier New", monospace;
+  letter-spacing: 0.2em;
+  font-size: 1.8rem;
+  color: #f97316;
+  text-shadow:
+    0 0 8px rgba(249, 115, 22, 0.8),
+    0 0 18px rgba(249, 115, 22, 0.5);
+  margin-bottom: 8px;
+}
+
+header p {
+  color: #e5e7eb;
+}
+
+header .small {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+/* HUD */
+.hud {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.hud-item {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: radial-gradient(circle at top, #0f172a, #020617);
+  box-shadow: 0 0 10px rgba(15, 23, 42, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #9ca3af;
+}
+
+.hud-item span:last-child {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+/* CARTE DU JEU */
+.game-card {
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: radial-gradient(circle at top, rgba(15, 23, 42, 0.95), rgba(2, 6, 23, 0.98));
+  box-shadow:
+    0 0 25px rgba(15, 23, 42, 0.9),
+    0 0 45px rgba(0, 0, 0, 1);
+  padding: 14px;
+}
+
+.game-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+/* BOUTON START */
+button {
+  border: none;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #22c55e, #22d3ee);
+  color: #022c22;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.7);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.15s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 24px rgba(34, 197, 94, 1);
+}
+
+button:active {
+  transform: translateY(0);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* MESSAGE */
+.message {
+  font-size: 0.85rem;
+  color: #e5e7eb;
+  text-align: right;
+}
+
+/* ZONE DE JEU */
+#game-area {
+  margin-top: 8px;
+  width: 100%;
+  height: 420px;
+  border-radius: 14px;
+  border: 2px solid rgba(148, 163, 184, 0.8);
+  background:
+    radial-gradient(circle at 10% 0%, rgba(56, 189, 248, 0.18), transparent 60%),
+    radial-gradient(circle at 90% 100%, rgba(244, 63, 94, 0.2), transparent 60%),
+    #020617;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 0 30px rgba(15, 23, 42, 0.9),
+    0 0 50px rgba(0, 0, 0, 1);
+}
+
+/* JOUEUR */
+#player {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #f9fafb 0%, #22d3ee 40%, #22c55e 80%);
+  box-shadow:
+    0 0 10px rgba(34, 211, 238, 0.9),
+    0 0 18px rgba(34, 197, 94, 0.9);
+}
+
+/* ENNEMIS (boules) */
+.enemy {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #f9fafb 0%, #f97316 30%, #ef4444 90%);
+  box-shadow:
+    0 0 10px rgba(248, 113, 113, 0.8),
+    0 0 18px rgba(249, 115, 22, 0.9);
+}
+
+/* FOOTER */
+footer {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+/* RESPONSIVE */
+@media (max-width: 700px) {
+  .hud {
+    flex-direction: column;
+  }
+
+  #game-area {
+    height: 320px;
+  }
+}
+

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Arcade Dodge - 30 Levels</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="scanlines"></div>
+  <div class="glow-overlay"></div>
+
+  <div class="wrapper">
+    <header>
+      <h1>ARCADE DODGE</h1>
+      <p>Évite les boules ennemies et essaie d'atteindre le niveau 30... si tu peux 😈</p>
+      <p class="small">
+        Contrôles : flèches du clavier (↑ ↓ ← →)
+      </p>
+    </header>
+
+    <main>
+      <section class="hud">
+        <div class="hud-item">
+          <span class="label">Niveau</span>
+          <span id="level">1</span>/30
+        </div>
+        <div class="hud-item">
+          <span class="label">Temps</span>
+          <span id="time">0</span>s
+        </div>
+        <div class="hud-item">
+          <span class="label">Essais</span>
+          <span id="attempts">0</span>
+        </div>
+      </section>
+
+      <section class="game-card">
+        <div class="game-top">
+          <button id="start-btn">START GAME</button>
+          <p id="message" class="message"></p>
+        </div>
+
+        <div id="game-area">
+          <div id="player"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Jeu HTML / CSS / JS en mode arcade, à jouer dans le navigateur sur VS Code.</p>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

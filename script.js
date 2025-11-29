@@ -1,387 +1,233 @@
-const gameArea = document.getElementById("game-area");
-const player = document.getElementById("player");
-const startBtn = document.getElementById("start-btn");
-const levelSpan = document.getElementById("level");
-const timeSpan = document.getElementById("time");
-const attemptsSpan = document.getElementById("attempts");
-const messageP = document.getElementById("message");
+const gameArea=document.getElementById("game-area");
+const player=document.getElementById("player");
+const startBtn=document.getElementById("start-btn");
+const levelSpan=document.getElementById("level");
+const timeSpan=document.getElementById("time");
+const attemptsSpan=document.getElementById("attempts");
+const messageP=document.getElementById("message");
 
-let gameRunning = false;
-let currentLevel = 1;
-const maxLevel = 30;
-let attempts = 0;
+let gameRunning=false,currentLevel=1;
+const maxLevel=60;
+let attempts=0,timeLeft=0,enemies=[],timerInterval=null,animationFrameId=null;
 
-let timeLeft = 0;
-let timerInterval = null;
-let animationFrameId = null;
-
-// Joueur
-let playerX = 0;
-let playerY = 0;
-const playerSize = 26;
-let playerSpeed = 3.2;
-
-// Ennemis
-let enemies = [];
-
-// Détection tactile
-const isTouchDevice =
-  "ontouchstart" in window || navigator.maxTouchPoints > 0;
-
-// Entrées clavier (PC)
-const keysPressed = {
-  ArrowUp: false,
-  ArrowDown: false,
-  ArrowLeft: false,
-  ArrowRight: false,
-};
+let playerX=0,playerY=0,playerSpeed=3.2,playerSize=26;
+const keys={ArrowUp:0,ArrowDown:0,ArrowLeft:0,ArrowRight:0};
+const touch="ontouchstart"in window;
 
 // CONFIG NIVEAUX
-function getLevelConfig(level) {
-  const isRush = level % 5 === 0;
-
-  const enemyCount = Math.min(3 + Math.floor(level * 0.7) + (isRush ? 2 : 0), 16);
-  const baseSpeed = 1.8 + level * 0.25 + (isRush ? 1.0 : 0);
-  const duration = isRush ? 8 + Math.floor(level / 4) : 10 + Math.floor(level / 3);
-  const enemySize = Math.max(26 - Math.floor(level / 2), 12);
-  const playerSpeedBoost = 3.2 + level * 0.06;
-  const chaserCount = level >= 5 ? Math.min(1 + Math.floor(level / 5), enemyCount - 1) : 0;
-
-  return {
-    enemyCount,
-    enemyMinSpeed: baseSpeed * 0.8,
-    enemyMaxSpeed: baseSpeed * 1.3,
-    duration,
-    enemySize,
-    playerSpeed: playerSpeedBoost,
-    chaserCount,
-  };
-}
-
-// JOUEUR
-function centerPlayer() {
-  const rect = gameArea.getBoundingClientRect();
-  playerX = rect.width / 2 - playerSize / 2;
-  playerY = rect.height / 2 - playerSize / 2;
-  updatePlayerPosition();
-}
-
-function updatePlayerPosition() {
-  player.style.left = `${playerX}px`;
-  player.style.top = `${playerY}px`;
-}
-
-// clavier
-function updatePlayerFromKeys() {
-  if (!gameRunning) return;
-
-  const rect = gameArea.getBoundingClientRect();
-  let dx = 0;
-  let dy = 0;
-
-  if (keysPressed.ArrowUp) dy -= playerSpeed;
-  if (keysPressed.ArrowDown) dy += playerSpeed;
-  if (keysPressed.ArrowLeft) dx -= playerSpeed;
-  if (keysPressed.ArrowRight) dx += playerSpeed;
-
-  playerX += dx;
-  playerY += dy;
-
-  clampPlayer(rect);
-  updatePlayerPosition();
-}
-
-// tactile
-function handleTouchMove(e) {
-  if (!gameRunning) return;
-  e.preventDefault();
-
-  const rect = gameArea.getBoundingClientRect();
-  const touch = e.touches[0];
-  if (!touch) return;
-
-  const x = touch.clientX - rect.left - playerSize / 2;
-  const y = touch.clientY - rect.top - playerSize / 2;
-
-  playerX = x;
-  playerY = y;
-
-  clampPlayer(rect);
-  updatePlayerPosition();
-}
-
-function clampPlayer(rect) {
-  if (playerX < 0) playerX = 0;
-  if (playerY < 0) playerY = 0;
-  if (playerX > rect.width - playerSize) playerX = rect.width - playerSize;
-  if (playerY > rect.height - playerSize) playerY = rect.height - playerSize;
-}
-
-// ENNEMIS
-function createEnemy(config, type = "bouncer") {
-  const rect = gameArea.getBoundingClientRect();
-  const enemyEl = document.createElement("div");
-  enemyEl.className = "enemy";
-  enemyEl.style.width = `${config.enemySize}px`;
-  enemyEl.style.height = `${config.enemySize}px`;
-
-  const side = Math.floor(Math.random() * 4);
-  let x, y;
-
-  if (side === 0) {
-    x = -config.enemySize;
-    y = Math.random() * (rect.height - config.enemySize);
-  } else if (side === 1) {
-    x = rect.width + config.enemySize;
-    y = Math.random() * (rect.height - config.enemySize);
-  } else if (side === 2) {
-    x = Math.random() * (rect.width - config.enemySize);
-    y = -config.enemySize;
-  } else {
-    x = Math.random() * (rect.width - config.enemySize);
-    y = rect.height + config.enemySize;
+function getLevelConfig(l){
+  const rush=l%5===0;
+  return{
+    enemyCount:Math.min(4+l*0.9+(rush?2:0),35),
+    enemyMinSpeed:1.8+l*.30,
+    enemyMaxSpeed:2.2+l*.35+(rush?1.2:0),
+    duration:10+Math.floor(l/2)+(rush?4:0),
+    enemySize:Math.max(26-Math.floor(l/2),11),
+    playerSpeed:3.2+l*.07
   }
+}
 
-  enemyEl.style.left = `${x}px`;
-  enemyEl.style.top = `${y}px`;
-  gameArea.appendChild(enemyEl);
+// ZONE
+function centerPlayer(){
+  const r=gameArea.getBoundingClientRect();
+  playerX=r.width/2-playerSize/2;
+  playerY=r.height/2-playerSize/2;
+  updatePlayer();
+}
+function updatePlayer(){
+  player.style.left=playerX+"px";
+  player.style.top=playerY+"px";
+}
 
-  const angle = Math.random() * Math.PI * 2;
-  const speed =
-    config.enemyMinSpeed +
-    Math.random() * (config.enemyMaxSpeed - config.enemyMinSpeed);
+// KEYBOARD
+addEventListener("keydown",e=>keys[e.key]=1);
+addEventListener("keyup",e=>keys[e.key]=0);
 
-  const vx = Math.cos(angle) * speed;
-  const vy = Math.sin(angle) * speed;
+function movePlayerKB(){
+  if(!gameRunning)return;
+  const r=gameArea.getBoundingClientRect();
+  if(keys.ArrowUp)playerY-=playerSpeed;
+  if(keys.ArrowDown)playerY+=playerSpeed;
+  if(keys.ArrowLeft)playerX-=playerSpeed;
+  if(keys.ArrowRight)playerX+=playerSpeed;
 
-  enemies.push({
-    el: enemyEl,
-    x,
-    y,
-    vx,
-    vy,
-    size: config.enemySize,
-    maxSpeed: config.enemyMaxSpeed * (type === "chaser" ? 1.4 : 1.0),
-    type,
+  playerX=Math.max(0,Math.min(r.width-playerSize,playerX));
+  playerY=Math.max(0,Math.min(r.height-playerSize,playerY));
+  updatePlayer();
+}
+
+// TOUCH
+function touchMove(e){
+  if(!gameRunning)return;
+  const r=gameArea.getBoundingClientRect();
+  const t=e.touches[0];
+  playerX=t.clientX-r.left-playerSize/2;
+  playerY=t.clientY-r.top-playerSize/2;
+  playerX=Math.max(0,Math.min(r.width-playerSize,playerX));
+  playerY=Math.max(0,Math.min(r.height-playerSize,playerY));
+  updatePlayer();
+}
+gameArea.addEventListener("touchmove",touchMove,{passive:false});
+
+// ENNEMIS + POWERUPS
+let powerUp=null,powerActive=false,powerTimer=0;
+
+function spawnEnemy(cfg,type="b"){
+  const r=gameArea.getBoundingClientRect();
+  const e=document.createElement("div");
+  e.className="enemy";
+  e.style.width=e.style.height=cfg.enemySize+"px";
+
+  let side=Math.random()*4|0,x,y;
+  if(side===0)x=-cfg.enemySize,y=Math.random()*r.height;
+  else if(side===1)x=r.width+cfg.enemySize,y=Math.random()*r.height;
+  else if(side===2)x=Math.random()*r.width,y=-cfg.enemySize;
+  else x=Math.random()*r.width,y=r.height+cfg.enemySize;
+
+  e.style.left=x+"px"; e.style.top=y+"px";
+  gameArea.appendChild(e);
+
+  const ang=Math.random()*Math.PI*2;
+  const sp=cfg.enemyMinSpeed+Math.random()*(cfg.enemyMaxSpeed-cfg.enemyMinSpeed);
+  enemies.push({el:e,x,y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,size:cfg.enemySize});
+}
+
+function spawnPower(){
+  if(powerUp||!gameRunning||Math.random()<0.985)return;
+  const types=["shield","slow","speed"];
+  const t=types[Math.random()*types.length|0];
+  const r=gameArea.getBoundingClientRect(),s=22;
+  const p=document.createElement("div");
+  p.className="powerup"; p.dataset.type=t;
+
+  p.style.left=Math.random()*(r.width-s)+"px";
+  p.style.top=Math.random()*(r.height-s)+"px";
+
+  if(t=="shield")p.style.background="#4ade80";
+  if(t=="slow")p.style.background="#3b82f6";
+  if(t=="speed")p.style.background="#f97316";
+
+  gameArea.appendChild(p); powerUp=p;
+}
+
+function activate(type){
+  powerActive=true; powerTimer=6;
+  if(type=="shield")player.style.boxShadow="0 0 25px #22c55e";
+  if(type=="slow")enemies.forEach(e=>{e.vx*=.5;e.vy*=.5});
+  if(type=="speed")playerSpeed*=1.8;
+
+  let iv=setInterval(()=>{
+    powerTimer--;
+    if(powerTimer<=0){
+      clearInterval(iv); powerActive=false;
+      playerSpeed=3.2+currentLevel*.07;
+      player.style.boxShadow="";
+    }
+  },1000);
+}
+
+function checkPower(){
+  if(!powerUp)return;
+  const a=player.getBoundingClientRect(),b=powerUp.getBoundingClientRect();
+  if(!(a.right<b.left||a.left>b.right||a.bottom<b.top||a.top>b.bottom)){
+    activate(powerUp.dataset.type);
+    powerUp.remove(); powerUp=null;
+  }
+}
+
+function updateEnemies(){
+  const r=gameArea.getBoundingClientRect();
+  enemies.forEach(o=>{
+    o.x+=o.vx; o.y+=o.vy;
+    if(o.x<0||o.x>r.width-o.size)o.vx*=-1;
+    if(o.y<0||o.y>r.height-o.size)o.vy*=-1;
+    o.el.style.left=o.x+"px"; o.el.style.top=o.y+"px";
   });
 }
 
-function createEnemies(config) {
-  enemies.forEach((e) => e.el.remove());
-  enemies = [];
-
-  for (let i = 0; i < config.chaserCount; i++) {
-    createEnemy(config, "chaser");
-  }
-  const remaining = config.enemyCount - config.chaserCount;
-  for (let i = 0; i < remaining; i++) {
-    createEnemy(config, "bouncer");
-  }
-}
-
-function updateEnemies() {
-  const rect = gameArea.getBoundingClientRect();
-
-  enemies.forEach((enemy) => {
-    if (enemy.type === "chaser") {
-      const targetX = playerX + playerSize / 2;
-      const targetY = playerY + playerSize / 2;
-      const enemyCenterX = enemy.x + enemy.size / 2;
-      const enemyCenterY = enemy.y + enemy.size / 2;
-
-      let dx = targetX - enemyCenterX;
-      let dy = targetY - enemyCenterY;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-
-      dx /= dist;
-      dy /= dist;
-
-      const accel = 0.05 + currentLevel * 0.004;
-      enemy.vx += dx * accel;
-      enemy.vy += dy * accel;
-
-      const speed = Math.sqrt(enemy.vx * enemy.vx + enemy.vy * enemy.vy);
-      if (speed > enemy.maxSpeed) {
-        enemy.vx = (enemy.vx / speed) * enemy.maxSpeed;
-        enemy.vy = (enemy.vy / speed) * enemy.maxSpeed;
-      }
-    }
-
-    enemy.x += enemy.vx;
-    enemy.y += enemy.vy;
-
-    if (enemy.x <= 0) {
-      enemy.x = 0;
-      enemy.vx *= -1;
-    }
-    if (enemy.x >= rect.width - enemy.size) {
-      enemy.x = rect.width - enemy.size;
-      enemy.vx *= -1;
-    }
-    if (enemy.y <= 0) {
-      enemy.y = 0;
-      enemy.vy *= -1;
-    }
-    if (enemy.y >= rect.height - enemy.size) {
-      enemy.y = rect.height - enemy.size;
-      enemy.vy *= -1;
-    }
-
-    enemy.el.style.left = `${enemy.x}px`;
-    enemy.el.style.top = `${enemy.y}px`;
-  });
-}
-
-// COLLISIONS
-function checkCollisions() {
-  const playerRect = player.getBoundingClientRect();
-  const playerCenterX = playerRect.left + playerRect.width / 2;
-  const playerCenterY = playerRect.top + playerRect.height / 2;
-  const playerRadius = playerRect.width / 2;
-
-  for (const enemy of enemies) {
-    const enemyRect = enemy.el.getBoundingClientRect();
-    const enemyCenterX = enemyRect.left + enemyRect.width / 2;
-    const enemyCenterY = enemyRect.top + enemyRect.height / 2;
-    const enemyRadius = enemyRect.width / 2;
-
-    const dx = playerCenterX - enemyCenterX;
-    const dy = playerCenterY - enemyCenterY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    if (distance < playerRadius + enemyRadius * 0.9) {
-      onPlayerHit();
-      break;
+// GAME
+function collision(){
+  const pr=player.getBoundingClientRect();
+  for(const o of enemies){
+    const er=o.el.getBoundingClientRect();
+    const dx=pr.left-pr.left+er.width,dy=0;
+    const d=Math.hypot(pr.left-er.left,pr.top-er.top);
+    if(d<pr.width){
+      if(powerActive)return; lose(); return;
     }
   }
 }
 
-function onPlayerHit() {
-  if (!gameRunning) return;
-
-  attempts++;
-  attemptsSpan.textContent = attempts.toString();
-  endLevel(false);
+function loop(){
+  if(!gameRunning)return;
+  if(!touch)movePlayerKB();
+  updateEnemies(); spawnPower(); checkPower(); collision();
+  requestAnimationFrame(loop);
 }
 
-// GAME LOOP
-function gameLoop() {
-  if (!gameRunning) return;
+// START LEVEL
+function start(l){
+  const c=getLevelConfig(l);
+  levelSpan.textContent=l;
+  timeLeft=c.duration; timeSpan.textContent=timeLeft;
+  playerSpeed=c.playerSpeed;
 
-  if (!isTouchDevice) {
-    updatePlayerFromKeys();
-  }
-
-  updateEnemies();
-  checkCollisions();
-
-  animationFrameId = requestAnimationFrame(gameLoop);
-}
-
-// NIVEAUX
-function startLevel(level) {
-  const config = getLevelConfig(level);
-
-  levelSpan.textContent = level.toString();
-  timeLeft = config.duration;
-  timeSpan.textContent = timeLeft.toString();
-
-  messageP.textContent = isTouchDevice
-    ? `Niveau ${level} — Survis ${config.duration}s. Déplace la boule avec ton doigt.`
-    : `Niveau ${level} — Survis ${config.duration}s. Déplace la boule avec les flèches.`;
-
-  playerSpeed = config.playerSpeed;
+  enemies.forEach(e=>e.el.remove()); enemies=[];
+  for(let i=0;i<c.enemyCount;i++)spawnEnemy(c);
 
   centerPlayer();
-  createEnemies(config);
 
   clearInterval(timerInterval);
-  timerInterval = setInterval(() => {
-    if (!gameRunning) return;
-    timeLeft--;
-    timeSpan.textContent = timeLeft.toString();
+  timerInterval=setInterval(()=>{
+    if(!gameRunning)return;
+    timeLeft--; timeSpan.textContent=timeLeft;
+    if(timeLeft<=0)win();
+  },1000);
 
-    if (timeLeft <= 0) {
-      endLevel(true);
-    }
-  }, 1000);
-
-  cancelAnimationFrame(animationFrameId);
-  gameRunning = true;
-  animationFrameId = requestAnimationFrame(gameLoop);
+  gameRunning=true; loop();
 }
 
-function endLevel(success) {
-  gameRunning = false;
-  clearInterval(timerInterval);
-  cancelAnimationFrame(animationFrameId);
-
-  if (success) {
-    if (currentLevel >= maxLevel) {
-      messageP.textContent = "INCROYABLE 😱 Tu as terminé le niveau 30 !";
-      startBtn.disabled = false;
-      startBtn.textContent = "Rejouer au niveau 1";
-      currentLevel = 1;
-    } else {
-      currentLevel++;
-      messageP.textContent = `Bravo ! Niveau ${currentLevel} débloqué. Clique sur START pour continuer.`;
-      startBtn.disabled = false;
-      startBtn.textContent = "Niveau suivant";
-    }
-  } else {
-    messageP.textContent = `Touché... Tu dois recommencer le niveau ${currentLevel}. 😈`;
-    startBtn.disabled = false;
-    startBtn.textContent = "Recommencer le niveau";
-  }
+// WIN / LOSE
+function win(){
+  gameRunning=false; clearInterval(timerInterval);
+  const winLines=[
+    "EZ clap 🔥","Tu l’as fumé ce niveau 😂","Winnnn 🥶",
+    "Le skill est certifié validé","SIGMA MOVE 💪","Free run chef 😈",
+    "Autoroute du talent 🚀","Tu files comme Sonic 🌀"
+  ];
+  messageP.textContent=winLines[Math.random()*winLines.length|0];
+  startBtn.textContent=(currentLevel>=maxLevel?"Restart":"Niveau suivant");
+  startBtn.disabled=false;if(currentLevel<maxLevel)currentLevel++;
 }
 
-// ÉVÈNEMENTS
-startBtn.addEventListener("click", () => {
-  startBtn.disabled = true;
-  messageP.textContent = "";
-  startLevel(currentLevel);
-});
+function lose(){
+  gameRunning=false;clearInterval(timerInterval);attempts++;
+  attemptsSpan.textContent=attempts;
+  const loseLines=[
+    "😱 skill issue","💀 retour lobby","🧍… déconnexion du skill",
+    "Tu t'es fait clip 4K 📹","Ratio par une boule 🤡",
+    "La boule : 1 – toi : 0","Encore ? 😭","Le mental est où là ? 🤨",
+    "Mdr dash dans l’ennemi 😂","Ton iPhone a soufflé 😮‍💨",
+    "BOOM fin de run 💥","Tu viens d'inventer une nouvelle façon de perdre",
+    "Respect la persévérance, pas le skill 😂","T’as glissé c’est ça ? 😏",
+    "Le niveau t’a éteint lumière comprise 😭","Plus rapide qu’un ghosting 💀",
+    "Tu t’es pris un abonnement défaite","Arcade Dodge : 60 – toi : 0 😬",
+    "JPP 💀","On refait ? Aïe aïe aïe","Toucher = mourir, tu touches 💀",
+    "Le mur t'aimait trop","Game Over mais avec style 💅"
+  ];
+  messageP.textContent=loseLines[Math.random()*loseLines.length|0];
+  startBtn.textContent="Recommencer";
+  startBtn.disabled=false;
+}
 
-window.addEventListener("keydown", (e) => {
-  if (e.key in keysPressed) {
-    keysPressed[e.key] = true;
-  }
-});
+// UI
+startBtn.onclick=()=>{
+  startBtn.disabled=true;messageP.textContent="";
+  start(currentLevel);
+}
 
-window.addEventListener("keyup", (e) => {
-  if (e.key in keysPressed) {
-    keysPressed[e.key] = false;
-  }
-});
+// INIT
+onload=()=>{centerPlayer()}
 
-// Tactile
-gameArea.addEventListener(
-  "touchstart",
-  (e) => {
-    if (!gameRunning) return;
-    handleTouchMove(e);
-  },
-  { passive: false }
-);
 
-gameArea.addEventListener(
-  "touchmove",
-  (e) => {
-    if (!gameRunning) return;
-    handleTouchMove(e);
-  },
-  { passive: false }
-);
-
-// Init
-window.addEventListener("load", () => {
-  centerPlayer();
-  levelSpan.textContent = currentLevel.toString();
-  timeSpan.textContent = "0";
-  attemptsSpan.textContent = attempts.toString();
-
-  messageP.textContent = isTouchDevice
-    ? "Clique sur START puis déplace la boule avec ton doigt."
-    : "Clique sur START pour commencer au niveau 1 (flèches du clavier).";
-});
 

@@ -1,233 +1,521 @@
-const gameArea=document.getElementById("game-area");
-const player=document.getElementById("player");
-const startBtn=document.getElementById("start-btn");
-const levelSpan=document.getElementById("level");
-const timeSpan=document.getElementById("time");
-const attemptsSpan=document.getElementById("attempts");
-const messageP=document.getElementById("message");
+// RÉFÉRENCES DOM
+const gameArea = document.getElementById("game-area");
+const player = document.getElementById("player");
+const startBtn = document.getElementById("start-btn");
+const levelSpan = document.getElementById("level");
+const timeSpan = document.getElementById("time");
+const attemptsSpan = document.getElementById("attempts");
+const messageP = document.getElementById("message");
 
-let gameRunning=false,currentLevel=1;
-const maxLevel=60;
-let attempts=0,timeLeft=0,enemies=[],timerInterval=null,animationFrameId=null;
+// ÉTAT GLOBAL
+let gameRunning = false;
+let maxLevel = 60;
+let attempts = 0;
+let enemies = [];
+let timeLeft = 0;
+let timerInterval = null;
+let animationFrameId = null;
 
-let playerX=0,playerY=0,playerSpeed=3.2,playerSize=26;
-const keys={ArrowUp:0,ArrowDown:0,ArrowLeft:0,ArrowRight:0};
-const touch="ontouchstart"in window;
+// Joueur
+let playerX = 0;
+let playerY = 0;
+const playerSize = 26;
+let playerSpeed = 3.2;
+let basePlayerSpeed = 3.2;
 
-// CONFIG NIVEAUX
-function getLevelConfig(l){
-  const rush=l%5===0;
-  return{
-    enemyCount:Math.min(4+l*0.9+(rush?2:0),35),
-    enemyMinSpeed:1.8+l*.30,
-    enemyMaxSpeed:2.2+l*.35+(rush?1.2:0),
-    duration:10+Math.floor(l/2)+(rush?4:0),
-    enemySize:Math.max(26-Math.floor(l/2),11),
-    playerSpeed:3.2+l*.07
+// clavier
+const keysPressed = {
+  ArrowUp: false,
+  ArrowDown: false,
+  ArrowLeft: false,
+  ArrowRight: false,
+};
+
+// Touch
+const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+
+// Power-ups
+let powerUpEl = null;
+let powerActive = false;
+let activePower = null;
+let powerTimerId = null;
+let shieldActive = false;
+
+// NIVEAU SAUVEGARDÉ (localStorage)
+function loadSavedLevel() {
+  const stored = localStorage.getItem("arcadeDodgeLevel");
+  const n = parseInt(stored, 10);
+  if (!isNaN(n) && n >= 1 && n <= maxLevel) return n;
+  return 1;
+}
+let currentLevel = loadSavedLevel();
+
+// CONFIG DE NIVEAU
+function getLevelConfig(level) {
+  const isRush = level % 5 === 0;
+  const enemyCount = Math.min(4 + Math.floor(level * 0.9) + (isRush ? 2 : 0), 35);
+  const enemyMinSpeed = 1.8 + level * 0.3;
+  const enemyMaxSpeed = 2.2 + level * 0.35 + (isRush ? 1.2 : 0);
+  const duration = 10 + Math.floor(level / 2) + (isRush ? 4 : 0);
+  const enemySize = Math.max(26 - Math.floor(level / 2), 11);
+  const pSpeed = 3.2 + level * 0.07;
+
+  return {
+    enemyCount,
+    enemyMinSpeed,
+    enemyMaxSpeed,
+    duration,
+    enemySize,
+    playerSpeed: pSpeed,
+  };
+}
+
+// JOUEUR
+function centerPlayer() {
+  const rect = gameArea.getBoundingClientRect();
+  playerX = rect.width / 2 - playerSize / 2;
+  playerY = rect.height / 2 - playerSize / 2;
+  updatePlayerPosition();
+}
+
+function updatePlayerPosition() {
+  player.style.left = `${playerX}px`;
+  player.style.top = `${playerY}px`;
+}
+
+function clampPlayer() {
+  const rect = gameArea.getBoundingClientRect();
+  if (playerX < 0) playerX = 0;
+  if (playerY < 0) playerY = 0;
+  if (playerX > rect.width - playerSize) playerX = rect.width - playerSize;
+  if (playerY > rect.height - playerSize) playerY = rect.height - playerSize;
+}
+
+function updatePlayerFromKeys() {
+  if (!gameRunning) return;
+  let dx = 0;
+  let dy = 0;
+  if (keysPressed.ArrowUp) dy -= playerSpeed;
+  if (keysPressed.ArrowDown) dy += playerSpeed;
+  if (keysPressed.ArrowLeft) dx -= playerSpeed;
+  if (keysPressed.ArrowRight) dx += playerSpeed;
+
+  playerX += dx;
+  playerY += dy;
+  clampPlayer();
+  updatePlayerPosition();
+}
+
+// Touch
+function handleTouchMove(e) {
+  if (!gameRunning) return;
+  e.preventDefault();
+  const rect = gameArea.getBoundingClientRect();
+  const touch = e.touches[0];
+  if (!touch) return;
+
+  playerX = touch.clientX - rect.left - playerSize / 2;
+  playerY = touch.clientY - rect.top - playerSize / 2;
+  clampPlayer();
+  updatePlayerPosition();
+}
+
+// ENNEMIS
+function createEnemy(config) {
+  const rect = gameArea.getBoundingClientRect();
+  const enemyEl = document.createElement("div");
+  enemyEl.className = "enemy";
+  enemyEl.style.width = `${config.enemySize}px`;
+  enemyEl.style.height = `${config.enemySize}px`;
+
+  const side = Math.floor(Math.random() * 4);
+  let x, y;
+
+  if (side === 0) {
+    x = -config.enemySize;
+    y = Math.random() * (rect.height - config.enemySize);
+  } else if (side === 1) {
+    x = rect.width + config.enemySize;
+    y = Math.random() * (rect.height - config.enemySize);
+  } else if (side === 2) {
+    x = Math.random() * (rect.width - config.enemySize);
+    y = -config.enemySize;
+  } else {
+    x = Math.random() * (rect.width - config.enemySize);
+    y = rect.height + config.enemySize;
   }
-}
 
-// ZONE
-function centerPlayer(){
-  const r=gameArea.getBoundingClientRect();
-  playerX=r.width/2-playerSize/2;
-  playerY=r.height/2-playerSize/2;
-  updatePlayer();
-}
-function updatePlayer(){
-  player.style.left=playerX+"px";
-  player.style.top=playerY+"px";
-}
+  enemyEl.style.left = `${x}px`;
+  enemyEl.style.top = `${y}px`;
+  gameArea.appendChild(enemyEl);
 
-// KEYBOARD
-addEventListener("keydown",e=>keys[e.key]=1);
-addEventListener("keyup",e=>keys[e.key]=0);
+  const angle = Math.random() * Math.PI * 2;
+  const speed =
+    config.enemyMinSpeed +
+    Math.random() * (config.enemyMaxSpeed - config.enemyMinSpeed);
 
-function movePlayerKB(){
-  if(!gameRunning)return;
-  const r=gameArea.getBoundingClientRect();
-  if(keys.ArrowUp)playerY-=playerSpeed;
-  if(keys.ArrowDown)playerY+=playerSpeed;
-  if(keys.ArrowLeft)playerX-=playerSpeed;
-  if(keys.ArrowRight)playerX+=playerSpeed;
+  const vx = Math.cos(angle) * speed;
+  const vy = Math.sin(angle) * speed;
 
-  playerX=Math.max(0,Math.min(r.width-playerSize,playerX));
-  playerY=Math.max(0,Math.min(r.height-playerSize,playerY));
-  updatePlayer();
-}
-
-// TOUCH
-function touchMove(e){
-  if(!gameRunning)return;
-  const r=gameArea.getBoundingClientRect();
-  const t=e.touches[0];
-  playerX=t.clientX-r.left-playerSize/2;
-  playerY=t.clientY-r.top-playerSize/2;
-  playerX=Math.max(0,Math.min(r.width-playerSize,playerX));
-  playerY=Math.max(0,Math.min(r.height-playerSize,playerY));
-  updatePlayer();
-}
-gameArea.addEventListener("touchmove",touchMove,{passive:false});
-
-// ENNEMIS + POWERUPS
-let powerUp=null,powerActive=false,powerTimer=0;
-
-function spawnEnemy(cfg,type="b"){
-  const r=gameArea.getBoundingClientRect();
-  const e=document.createElement("div");
-  e.className="enemy";
-  e.style.width=e.style.height=cfg.enemySize+"px";
-
-  let side=Math.random()*4|0,x,y;
-  if(side===0)x=-cfg.enemySize,y=Math.random()*r.height;
-  else if(side===1)x=r.width+cfg.enemySize,y=Math.random()*r.height;
-  else if(side===2)x=Math.random()*r.width,y=-cfg.enemySize;
-  else x=Math.random()*r.width,y=r.height+cfg.enemySize;
-
-  e.style.left=x+"px"; e.style.top=y+"px";
-  gameArea.appendChild(e);
-
-  const ang=Math.random()*Math.PI*2;
-  const sp=cfg.enemyMinSpeed+Math.random()*(cfg.enemyMaxSpeed-cfg.enemyMinSpeed);
-  enemies.push({el:e,x,y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,size:cfg.enemySize});
-}
-
-function spawnPower(){
-  if(powerUp||!gameRunning||Math.random()<0.985)return;
-  const types=["shield","slow","speed"];
-  const t=types[Math.random()*types.length|0];
-  const r=gameArea.getBoundingClientRect(),s=22;
-  const p=document.createElement("div");
-  p.className="powerup"; p.dataset.type=t;
-
-  p.style.left=Math.random()*(r.width-s)+"px";
-  p.style.top=Math.random()*(r.height-s)+"px";
-
-  if(t=="shield")p.style.background="#4ade80";
-  if(t=="slow")p.style.background="#3b82f6";
-  if(t=="speed")p.style.background="#f97316";
-
-  gameArea.appendChild(p); powerUp=p;
-}
-
-function activate(type){
-  powerActive=true; powerTimer=6;
-  if(type=="shield")player.style.boxShadow="0 0 25px #22c55e";
-  if(type=="slow")enemies.forEach(e=>{e.vx*=.5;e.vy*=.5});
-  if(type=="speed")playerSpeed*=1.8;
-
-  let iv=setInterval(()=>{
-    powerTimer--;
-    if(powerTimer<=0){
-      clearInterval(iv); powerActive=false;
-      playerSpeed=3.2+currentLevel*.07;
-      player.style.boxShadow="";
-    }
-  },1000);
-}
-
-function checkPower(){
-  if(!powerUp)return;
-  const a=player.getBoundingClientRect(),b=powerUp.getBoundingClientRect();
-  if(!(a.right<b.left||a.left>b.right||a.bottom<b.top||a.top>b.bottom)){
-    activate(powerUp.dataset.type);
-    powerUp.remove(); powerUp=null;
-  }
-}
-
-function updateEnemies(){
-  const r=gameArea.getBoundingClientRect();
-  enemies.forEach(o=>{
-    o.x+=o.vx; o.y+=o.vy;
-    if(o.x<0||o.x>r.width-o.size)o.vx*=-1;
-    if(o.y<0||o.y>r.height-o.size)o.vy*=-1;
-    o.el.style.left=o.x+"px"; o.el.style.top=o.y+"px";
+  enemies.push({
+    el: enemyEl,
+    x,
+    y,
+    vx,
+    vy,
+    size: config.enemySize,
   });
 }
 
-// GAME
-function collision(){
-  const pr=player.getBoundingClientRect();
-  for(const o of enemies){
-    const er=o.el.getBoundingClientRect();
-    const dx=pr.left-pr.left+er.width,dy=0;
-    const d=Math.hypot(pr.left-er.left,pr.top-er.top);
-    if(d<pr.width){
-      if(powerActive)return; lose(); return;
+function createEnemies(config) {
+  enemies.forEach((e) => e.el.remove());
+  enemies = [];
+  for (let i = 0; i < config.enemyCount; i++) {
+    createEnemy(config);
+  }
+}
+
+function updateEnemies() {
+  const rect = gameArea.getBoundingClientRect();
+  enemies.forEach((enemy) => {
+    enemy.x += enemy.vx;
+    enemy.y += enemy.vy;
+
+    if (enemy.x <= 0) {
+      enemy.x = 0;
+      enemy.vx *= -1;
+    }
+    if (enemy.x >= rect.width - enemy.size) {
+      enemy.x = rect.width - enemy.size;
+      enemy.vx *= -1;
+    }
+    if (enemy.y <= 0) {
+      enemy.y = 0;
+      enemy.vy *= -1;
+    }
+    if (enemy.y >= rect.height - enemy.size) {
+      enemy.y = rect.height - enemy.size;
+      enemy.vy *= -1;
+    }
+
+    enemy.el.style.left = `${enemy.x}px`;
+    enemy.el.style.top = `${enemy.y}px`;
+  });
+}
+
+// POWER-UPS
+function clearPowerState() {
+  powerActive = false;
+  activePower = null;
+  shieldActive = false;
+  playerSpeed = basePlayerSpeed;
+  player.style.boxShadow = "";
+  if (powerUpEl) {
+    powerUpEl.remove();
+    powerUpEl = null;
+  }
+  if (powerTimerId) {
+    clearInterval(powerTimerId);
+    powerTimerId = null;
+  }
+}
+
+function spawnPowerUp() {
+  if (!gameRunning) return;
+  if (powerUpEl) return;
+  if (Math.random() > 0.01) return; // ~1% par frame
+
+  const rect = gameArea.getBoundingClientRect();
+  const size = 22;
+  const pu = document.createElement("div");
+  pu.className = "powerup";
+
+  const types = ["shield", "slow", "speed"];
+  const type = types[Math.floor(Math.random() * types.length)];
+  pu.dataset.type = type;
+
+  if (type === "shield") pu.style.background = "#4ade80";
+  if (type === "slow") pu.style.background = "#3b82f6";
+  if (type === "speed") pu.style.background = "#f97316";
+
+  pu.style.left = `${Math.random() * (rect.width - size)}px`;
+  pu.style.top = `${Math.random() * (rect.height - size)}px`;
+
+  gameArea.appendChild(pu);
+  powerUpEl = pu;
+}
+
+function activatePower(type) {
+  powerActive = true;
+  activePower = type;
+  powerTimerId && clearInterval(powerTimerId);
+
+  // reset joueur
+  playerSpeed = basePlayerSpeed;
+  player.style.boxShadow = "";
+
+  if (type === "shield") {
+    shieldActive = true;
+    player.style.boxShadow = "0 0 18px #22c55e";
+  } else if (type === "slow") {
+    enemies.forEach((e) => {
+      e.vx *= 0.5;
+      e.vy *= 0.5;
+    });
+  } else if (type === "speed") {
+    playerSpeed = basePlayerSpeed * 1.8;
+    player.style.boxShadow = "0 0 18px #f97316";
+  }
+
+  let remaining = 6; // secondes
+  powerTimerId = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(powerTimerId);
+      powerTimerId = null;
+      powerActive = false;
+      activePower = null;
+      shieldActive = false;
+      playerSpeed = basePlayerSpeed;
+      player.style.boxShadow = "";
+    }
+  }, 1000);
+}
+
+function checkPowerUpPickup() {
+  if (!powerUpEl) return;
+  const pRect = player.getBoundingClientRect();
+  const puRect = powerUpEl.getBoundingClientRect();
+
+  const overlap =
+    !(pRect.right < puRect.left ||
+      pRect.left > puRect.right ||
+      pRect.bottom < puRect.top ||
+      pRect.top > puRect.bottom);
+
+  if (overlap) {
+    const type = powerUpEl.dataset.type;
+    powerUpEl.remove();
+    powerUpEl = null;
+    activatePower(type);
+  }
+}
+
+// COLLISION JOUEUR / ENNEMIS
+function checkCollisions() {
+  const playerRect = player.getBoundingClientRect();
+  const pCX = playerRect.left + playerRect.width / 2;
+  const pCY = playerRect.top + playerRect.height / 2;
+  const pR = playerRect.width / 2;
+
+  for (const enemy of enemies) {
+    const eRect = enemy.el.getBoundingClientRect();
+    const eCX = eRect.left + eRect.width / 2;
+    const eCY = eRect.top + eRect.height / 2;
+    const eR = eRect.width / 2;
+
+    const dx = pCX - eCX;
+    const dy = pCY - eCY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const maxDist = (pR + eR) * 0.9;
+
+    if (dist < maxDist) {
+      if (shieldActive) {
+        // on consomme le shield et on enlève l'ennemi touché
+        shieldActive = false;
+        player.style.boxShadow = "";
+        enemy.el.remove();
+        enemies = enemies.filter((e) => e !== enemy);
+        return; // pas de game over
+      } else {
+        endLevel(false);
+        return;
+      }
     }
   }
 }
 
-function loop(){
-  if(!gameRunning)return;
-  if(!touch)movePlayerKB();
-  updateEnemies(); spawnPower(); checkPower(); collision();
-  requestAnimationFrame(loop);
+// GAME LOOP
+function gameLoop() {
+  if (!gameRunning) return;
+
+  if (!isTouchDevice) {
+    updatePlayerFromKeys();
+  }
+  updateEnemies();
+  spawnPowerUp();
+  checkPowerUpPickup();
+  checkCollisions();
+
+  animationFrameId = requestAnimationFrame(gameLoop);
 }
 
-// START LEVEL
-function start(l){
-  const c=getLevelConfig(l);
-  levelSpan.textContent=l;
-  timeLeft=c.duration; timeSpan.textContent=timeLeft;
-  playerSpeed=c.playerSpeed;
-
-  enemies.forEach(e=>e.el.remove()); enemies=[];
-  for(let i=0;i<c.enemyCount;i++)spawnEnemy(c);
-
-  centerPlayer();
+// DÉMARRER UN NIVEAU
+function startLevel(level) {
+  const config = getLevelConfig(level);
 
   clearInterval(timerInterval);
-  timerInterval=setInterval(()=>{
-    if(!gameRunning)return;
-    timeLeft--; timeSpan.textContent=timeLeft;
-    if(timeLeft<=0)win();
-  },1000);
+  cancelAnimationFrame(animationFrameId);
+  clearPowerState();
 
-  gameRunning=true; loop();
+  const saved = loadSavedLevel();
+  if (saved > level) {
+    currentLevel = saved;
+    level = saved;
+  }
+
+  levelSpan.textContent = level.toString();
+  timeLeft = config.duration;
+  timeSpan.textContent = timeLeft.toString();
+  basePlayerSpeed = config.playerSpeed;
+  playerSpeed = config.playerSpeed;
+
+  centerPlayer();
+  createEnemies(config);
+
+  gameRunning = true;
+  messageP.textContent = isTouchDevice
+    ? `Niveau ${level} — Survis ${config.duration}s. (Doigt pour bouger)`
+    : `Niveau ${level} — Survis ${config.duration}s. (Flèches pour bouger)`;
+
+  timerInterval = setInterval(() => {
+    if (!gameRunning) return;
+    timeLeft--;
+    timeSpan.textContent = timeLeft.toString();
+    if (timeLeft <= 0) {
+      endLevel(true);
+    }
+  }, 1000);
+
+  animationFrameId = requestAnimationFrame(gameLoop);
 }
 
-// WIN / LOSE
-function win(){
-  gameRunning=false; clearInterval(timerInterval);
-  const winLines=[
-    "EZ clap 🔥","Tu l’as fumé ce niveau 😂","Winnnn 🥶",
-    "Le skill est certifié validé","SIGMA MOVE 💪","Free run chef 😈",
-    "Autoroute du talent 🚀","Tu files comme Sonic 🌀"
-  ];
-  messageP.textContent=winLines[Math.random()*winLines.length|0];
-  startBtn.textContent=(currentLevel>=maxLevel?"Restart":"Niveau suivant");
-  startBtn.disabled=false;if(currentLevel<maxLevel)currentLevel++;
+// FIN DE NIVEAU
+function endLevel(success) {
+  if (!gameRunning) return;
+  gameRunning = false;
+  clearInterval(timerInterval);
+  cancelAnimationFrame(animationFrameId);
+
+  clearPowerState();
+
+  if (success) {
+    // sauvegarde du niveau atteint
+    if (currentLevel < maxLevel) {
+      currentLevel++;
+      localStorage.setItem("arcadeDodgeLevel", String(currentLevel));
+    }
+
+    const winLines = [
+      "EZ clap 🔥",
+      "Tu l’as fumé ce niveau 😂",
+      "Winnnn 🥶",
+      "Le skill est certifié validé 💪",
+      "SIGMA MOVE 😈",
+      "Autoroute du talent 🚀",
+      "Tu files comme Sonic 🌀",
+      "Arcade Dodge : tu commences à le dominer 🔥"
+    ];
+    const msg = winLines[Math.floor(Math.random() * winLines.length)];
+    messageP.textContent = msg;
+
+    if (currentLevel > maxLevel) {
+      messageP.textContent = "Tu as terminé tous les niveaux… boss du game 😈";
+      currentLevel = maxLevel;
+    }
+
+    startBtn.disabled = false;
+    startBtn.textContent = currentLevel > maxLevel
+      ? "Rejouer au niveau 1"
+      : "Niveau suivant";
+
+  } else {
+    attempts++;
+    attemptsSpan.textContent = attempts.toString();
+
+    const loseLines = [
+      "😱 skill issue",
+      "💀 retour lobby",
+      "🧍… déconnexion du skill",
+      "Tu t'es fait clip 4K 📹",
+      "Ratio par une boule 🤡",
+      "La boule : 1 – toi : 0",
+      "Encore ? 😭",
+      "Le mental est où là ? 🤨",
+      "Mdr dash dans l’ennemi 😂",
+      "Ton iPhone a soufflé 😮‍💨",
+      "BOOM fin de run 💥",
+      "Tu viens d'inventer une nouvelle façon de perdre 😂",
+      "Respect la persévérance, pas le skill 😭",
+      "T’as glissé c’est ça ? 😏",
+      "Le niveau t’a éteint lumière comprise 😭",
+      "Plus rapide qu’un ghosting 💀",
+      "Arcade Dodge : 60 – toi : 0 😬",
+      "Toucher = mourir, tu touches quand même 💀",
+      "Game Over mais avec style 💅"
+    ];
+    const msg = loseLines[Math.floor(Math.random() * loseLines.length)];
+    messageP.textContent = msg;
+
+    startBtn.disabled = false;
+    startBtn.textContent = "Recommencer le niveau";
+  }
 }
 
-function lose(){
-  gameRunning=false;clearInterval(timerInterval);attempts++;
-  attemptsSpan.textContent=attempts;
-  const loseLines=[
-    "😱 skill issue","💀 retour lobby","🧍… déconnexion du skill",
-    "Tu t'es fait clip 4K 📹","Ratio par une boule 🤡",
-    "La boule : 1 – toi : 0","Encore ? 😭","Le mental est où là ? 🤨",
-    "Mdr dash dans l’ennemi 😂","Ton iPhone a soufflé 😮‍💨",
-    "BOOM fin de run 💥","Tu viens d'inventer une nouvelle façon de perdre",
-    "Respect la persévérance, pas le skill 😂","T’as glissé c’est ça ? 😏",
-    "Le niveau t’a éteint lumière comprise 😭","Plus rapide qu’un ghosting 💀",
-    "Tu t’es pris un abonnement défaite","Arcade Dodge : 60 – toi : 0 😬",
-    "JPP 💀","On refait ? Aïe aïe aïe","Toucher = mourir, tu touches 💀",
-    "Le mur t'aimait trop","Game Over mais avec style 💅"
-  ];
-  messageP.textContent=loseLines[Math.random()*loseLines.length|0];
-  startBtn.textContent="Recommencer";
-  startBtn.disabled=false;
-}
+// EVENTS
+window.addEventListener("keydown", (e) => {
+  if (e.key in keysPressed) {
+    keysPressed[e.key] = true;
+  }
+});
 
-// UI
-startBtn.onclick=()=>{
-  startBtn.disabled=true;messageP.textContent="";
-  start(currentLevel);
-}
+window.addEventListener("keyup", (e) => {
+  if (e.key in keysPressed) {
+    keysPressed[e.key] = false;
+  }
+});
+
+gameArea.addEventListener(
+  "touchstart",
+  (e) => {
+    if (!gameRunning) return;
+    handleTouchMove(e);
+  },
+  { passive: false }
+);
+
+gameArea.addEventListener(
+  "touchmove",
+  (e) => {
+    if (!gameRunning) return;
+    handleTouchMove(e);
+  },
+  { passive: false }
+);
+
+startBtn.addEventListener("click", () => {
+  startBtn.disabled = true;
+  startLevel(currentLevel);
+});
 
 // INIT
-onload=()=>{centerPlayer()}
+window.addEventListener("load", () => {
+  centerPlayer();
+  levelSpan.textContent = currentLevel.toString();
+  timeSpan.textContent = "0";
+  attemptsSpan.textContent = attempts.toString();
+
+  const saved = loadSavedLevel();
+  if (saved > 1) {
+    currentLevel = saved;
+    levelSpan.textContent = currentLevel.toString();
+    messageP.textContent = `Progression retrouvée : niveau ${currentLevel}. Clique sur START.`;
+  } else {
+    messageP.textContent = "Clique sur START pour commencer au niveau 1.";
+  }
+});
+
+
 
 
 

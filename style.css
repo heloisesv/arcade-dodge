@@ -1,93 +1,244 @@
 /* RESET */
-*{
-  box-sizing:border-box;
-  margin:0;padding:0;
-  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-body{
-  background:radial-gradient(circle at top,#111827 0%,#020617 50%,#000 100%);
-  color:#e5e7eb;
-  min-height:100vh;overflow:hidden;
-  user-select:none;
-  touch-action:none;
+body {
+  background: radial-gradient(circle at top, #111827 0%, #020617 50%, #000 100%);
+  color: #e5e7eb;
+  min-height: 100vh;
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
 }
 
-/* Effet CRT */
-.scanlines{
-  pointer-events:none;
-  position:fixed;inset:0;
-  background:repeating-linear-gradient(
-  to bottom,rgba(255,255,255,0.03),
-  rgba(255,255,255,0.03)1px,
-  transparent 1px,transparent 3px);
-  opacity:.35;
-}
-.glow-overlay{
-  pointer-events:none;
-  position:fixed;inset:0;
-  background:radial-gradient(circle at 20% 20%,rgba(56,189,248,.2),transparent 60%),
-              radial-gradient(circle at 80% 80%,rgba(244,63,94,.2),transparent 60%);
+/* Effet écran */
+.scanlines {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.03),
+    rgba(255, 255, 255, 0.03) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  opacity: 0.35;
+  z-index: 1;
 }
 
-/* PAGE */
-.wrapper{max-width:900px;margin:0 auto;padding:12px;}
-header{text-align:center;margin-bottom:8px;}
-header h1{
-  font-family:"Courier New",monospace;
-  letter-spacing:.18em;
-  font-size:1.9rem;color:#f97316;
-  text-shadow:0 0 8px #f9731688,0 0 18px #f9731644;
+.glow-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.2), transparent 60%),
+    radial-gradient(circle at 80% 80%, rgba(244, 63, 94, 0.2), transparent 60%);
+  z-index: 0;
 }
-.small{font-size:.8rem;color:#9ca3af}
+
+/* Mise en page */
+.wrapper {
+  position: relative;
+  z-index: 2;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 12px 16px 20px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+header h1 {
+  font-family: "Courier New", monospace;
+  letter-spacing: 0.18em;
+  font-size: 1.8rem;
+  color: #f97316;
+  text-shadow:
+    0 0 8px rgba(249, 115, 22, 0.8),
+    0 0 18px rgba(249, 115, 22, 0.5);
+  margin-bottom: 6px;
+}
+
+header p {
+  color: #e5e7eb;
+}
+
+header .small {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-top: 3px;
+}
 
 /* HUD */
-.hud{display:flex;gap:8px;margin:10px 0;}
-.hud-item{
-  flex:1;padding:8px;border-radius:999px;
-  background:radial-gradient(circle,#111827,#020617);
-  border:1px solid #ffffff22;
-}
-.label{font-size:.72rem;color:#9ca3af;text-transform:uppercase}
-
-/* CARTE */
-.game-card{
-  border-radius:14px;padding:10px;
-  background:radial-gradient(circle at top,#0f172a,#020617);
-  border:1px solid #64748b88;
-  box-shadow:0 0 25px #000;
-}
-#game-area{
-  width:100%;height:430px;margin-top:6px;
-  border-radius:14px;overflow:hidden;
-  position:relative;
-  border:2px solid #64748b;
+.hud {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
-/* JOUEUR */
-#player{
-  width:26px;height:26px;border-radius:50%;
-  position:absolute;background:
-  radial-gradient(circle at 30% 30%,#fff,#22d3ee 40%,#22c55e 80%);
+.hud-item {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: radial-gradient(circle at top, #0f172a, #020617);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-/* ENNEMIS */
-.enemy{
-  position:absolute;border-radius:50%;
-  background:radial-gradient(circle,#fff,#f97316 40%,#ef4444 90%);
-  box-shadow:0 0 12px #ef4444;
+.label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #9ca3af;
 }
 
-/* BONUS */
-.powerup{
-  position:absolute;
-  width:22px;height:22px;border-radius:50%;
-  box-shadow:0 0 10px #ffffffaa;
+/* Carte de jeu */
+.game-card {
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: radial-gradient(circle at top, rgba(15, 23, 42, 0.95), rgba(2, 6, 23, 0.98));
+  padding: 10px;
+  box-shadow:
+    0 0 25px rgba(15, 23, 42, 0.9),
+    0 0 45px rgba(0, 0, 0, 1);
 }
 
-/* RESPONSIVE */
-@media(max-width:700px){
-  #game-area{height:70vh;}
+.game-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
+
+/* Bouton */
+button {
+  border: none;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #22c55e, #22d3ee);
+  color: #022c22;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.8);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.15s ease;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 0 24px rgba(34, 197, 94, 1);
+}
+
+/* Message texte */
+.message {
+  font-size: 0.82rem;
+  text-align: right;
+  color: #e5e7eb;
+}
+
+/* Aire de jeu */
+#game-area {
+  margin-top: 8px;
+  width: 100%;
+  height: 430px;
+  border-radius: 14px;
+  border: 2px solid rgba(148, 163, 184, 0.8);
+  background:
+    radial-gradient(circle at 10% 0%, rgba(56, 189, 248, 0.18), transparent 60%),
+    radial-gradient(circle at 90% 100%, rgba(244, 63, 94, 0.2), transparent 60%),
+    #020617;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Joueur */
+#player {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #f9fafb 0%, #22d3ee 40%, #22c55e 80%);
+  box-shadow:
+    0 0 10px rgba(34, 211, 238, 0.9),
+    0 0 18px rgba(34, 197, 94, 0.9);
+}
+
+/* Ennemis */
+.enemy {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #f9fafb 0%, #f97316 30%, #ef4444 90%);
+  box-shadow:
+    0 0 10px rgba(248, 113, 113, 0.8),
+    0 0 18px rgba(249, 115, 22, 0.9);
+}
+
+/* Power-up */
+.powerup {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.9);
+}
+
+/* Message au centre de l'arène */
+#overlay-message {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #f9fafb;
+  text-shadow: 0 0 10px #000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+#overlay-message.visible {
+  opacity: 1;
+}
+
+/* Footer */
+footer {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: #9ca3af;
+}
+
+/* Mobile */
+@media (max-width: 700px) {
+  .wrapper {
+    padding: 10px 8px 16px;
+  }
+
+  #game-area {
+    height: 70vh;
+  }
+}
+
+
 
 

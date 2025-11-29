@@ -1,63 +1,67 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no"
+  />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
 
   <title>Arcade Dodge</title>
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=4" />
 </head>
-
 <body>
+  <div class="scanlines"></div>
+  <div class="glow-overlay"></div>
 
-<div class="scanlines"></div>
-<div class="glow-overlay"></div>
+  <div class="wrapper">
+    <header>
+      <h1>ARCADE DODGE</h1>
+      <p>Évite les boules ennemies et monte le plus haut niveau possible.</p>
+      <p class="small">
+        Contrôles : flèches du clavier (↑ ↓ ← →) ou glisser avec le doigt sur mobile.
+      </p>
+    </header>
 
-<div class="wrapper">
-  <header>
-    <h1>ARCADE DODGE</h1>
-    <p>Survis. Esquive. Deviens légende.</p>
-    <p class="small">60 niveaux • pouvoirs • insanité progressive</p>
-  </header>
-
-  <div class="hud">
-    <div class="hud-item">
-      <span class="label">Niveau</span>
-      <span id="level">1</span>
+    <div class="hud">
+      <div class="hud-item">
+        <span class="label">Niveau</span>
+        <span id="level">1</span>
+      </div>
+      <div class="hud-item">
+        <span class="label">Temps</span>
+        <span id="time">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="label">Essais</span>
+        <span id="attempts">0</span>
+      </div>
     </div>
 
-    <div class="hud-item">
-      <span class="label">Temps</span>
-      <span id="time">0</span>
+    <div class="game-card">
+      <div class="game-top">
+        <button id="start-btn">START GAME</button>
+        <p id="message" class="message">Clique sur START pour commencer.</p>
+      </div>
+
+      <div id="game-area">
+        <div id="player"></div>
+        <div id="overlay-message"></div>
+      </div>
     </div>
 
-    <div class="hud-item">
-      <span class="label">Essais</span>
-      <span id="attempts">0</span>
-    </div>
+    <footer>
+      Jeu HTML / CSS / JS – jouable sur ordinateur et téléphone.
+    </footer>
   </div>
 
-  <div class="game-card">
-    <div class="game-top">
-      <button id="start-btn">START GAME</button>
-      <p id="message" class="message">Clique sur START pour commencer.</p>
-    </div>
-
-    <div id="game-area">
-      <div id="player"></div>
-    </div>
-  </div>
-
-  <footer>Made with ⚡ by <b>toi</b></footer>
-</div>
-
-<script src="script.js?v=3"></script>
+  <script src="script.js?v=4"></script>
 </body>
 </html>
+
+
 
 
 

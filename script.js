@@ -1,5 +1,12 @@
 // ----- RÉFÉRENCES DOM -----
 const gameArea = document.getElementById("game-area");
+// On supprime TOUTE ancienne sauvegarde de niveau (ancienne version du jeu)
+try {
+  localStorage.removeItem("arcadeDodgeLevel");
+} catch (e) {
+  // ignore si localStorage n'existe pas
+}
+
 const player = document.getElementById("player");
 const startBtn = document.getElementById("start-btn");
 const levelSpan = document.getElementById("level");
@@ -443,6 +450,7 @@ window.addEventListener("load", () => {
   attemptsSpan.textContent = String(attempts);
   messageP.textContent = "Clique sur START pour commencer au niveau 1.";
 });
+
 
 
 

@@ -10,10 +10,9 @@ const overlayMessage = document.getElementById("overlay-message");
 
 // ----- CONSTANTES -----
 const MAX_LEVEL = 60;
-const STORAGE_KEY = "arcadeDodgeLevel";
 
 // ----- ÉTAT GLOBAL -----
-let currentLevel = loadSavedLevel();
+let currentLevel = 1;
 let attempts = 0;
 let gameRunning = false;
 
@@ -39,26 +38,6 @@ let powerUpEl = null;
 let activePower = null;
 let powerTimerId = null;
 let shieldActive = false;
-
-// ----- SAUVEGARDE NIVEAU -----
-function loadSavedLevel() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    const n = parseInt(stored, 10);
-    if (!isNaN(n) && n >= 1 && n <= MAX_LEVEL) return n;
-  } catch (e) {
-    // localStorage désactivé ? on s'en fiche, on repart de 1
-  }
-  return 1;
-}
-
-function saveLevel() {
-  try {
-    localStorage.setItem(STORAGE_KEY, String(currentLevel));
-  } catch (e) {
-    // ignore
-  }
-}
 
 // ----- CONFIG NIVEAU -----
 function getLevelConfig(level) {
@@ -209,7 +188,7 @@ function clearPowerState() {
 function spawnPowerUp() {
   if (!gameRunning) return;
   if (powerUpEl) return;
-  if (Math.random() > 0.01) return; // ≈ 1% de chances par frame
+  if (Math.random() > 0.01) return; // ≈ 1 % de chances par frame
 
   const rect = gameArea.getBoundingClientRect();
   const size = 22;
@@ -296,7 +275,7 @@ function checkCollisions() {
 
     if (dist < maxDist) {
       if (shieldActive) {
-        // consomme le bouclier, enlève l’ennemi
+        // consomme le bouclier et enlève l’ennemi
         shieldActive = false;
         player.style.boxShadow = "";
         e.el.remove();
@@ -373,10 +352,7 @@ function endLevel(success) {
   let msg = "";
 
   if (success) {
-    if (currentLevel < MAX_LEVEL) {
-      currentLevel++;
-      saveLevel();
-    }
+    if (currentLevel < MAX_LEVEL) currentLevel++;
 
     const wins = [
       "EZ clap 🔥",
@@ -386,7 +362,7 @@ function endLevel(success) {
       "SIGMA MOVE 😈",
       "Autoroute du talent 🚀",
       "Arcade Dodge commence à te respecter.",
-      "Ok, t’es officiellement chaud(e)."
+      "Ok, t’es officiellement chaud·e."
     ];
     msg = wins[Math.floor(Math.random() * wins.length)];
 
@@ -399,7 +375,6 @@ function endLevel(success) {
     startBtn.disabled = false;
     startBtn.textContent =
       currentLevel >= MAX_LEVEL ? "Rejouer au niveau 1" : "Niveau suivant";
-
   } else {
     attempts++;
     attemptsSpan.textContent = String(attempts);
@@ -453,10 +428,8 @@ gameArea.addEventListener(
 );
 
 startBtn.addEventListener("click", () => {
-  // Si on est au message "Rejouer au niveau 1"
   if (startBtn.textContent.includes("Rejouer au niveau 1")) {
     currentLevel = 1;
-    saveLevel();
   }
   startBtn.disabled = true;
   startLevel(currentLevel);
@@ -468,13 +441,9 @@ window.addEventListener("load", () => {
   levelSpan.textContent = String(currentLevel);
   timeSpan.textContent = "0";
   attemptsSpan.textContent = String(attempts);
-
-  if (currentLevel > 1) {
-    messageP.textContent = `Progression retrouvée : niveau ${currentLevel}. Clique sur START pour reprendre.`;
-  } else {
-    messageP.textContent = "Clique sur START pour commencer au niveau 1.";
-  }
+  messageP.textContent = "Clique sur START pour commencer au niveau 1.";
 });
+
 
 
 

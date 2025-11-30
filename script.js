@@ -1,13 +1,5 @@
 // ----- RÉFÉRENCES DOM -----
 const gameArea = document.getElementById("game-area");
-
-// On supprime TOUTE ancienne sauvegarde de niveau (ancienne version du jeu)
-try {
-  localStorage.removeItem("arcadeDodgeLevel");
-} catch (e) {
-  // ignore si localStorage n'existe pas
-}
-
 const player = document.getElementById("player");
 const startBtn = document.getElementById("start-btn");
 const levelSpan = document.getElementById("level");
@@ -199,7 +191,9 @@ function updateEnemies() {
   });
 }
 
-// ----- COLLISIONS (plus de shield, plus de power-ups) -----
+// ----- COLLISIONS -----
+// Ici : SI tu touches une boule -> on redémarre directement le niveau.
+// Pas de super pouvoir, pas de mode "pause".
 function checkCollisions() {
   const pRect = player.getBoundingClientRect();
   const pCX = pRect.left + pRect.width / 2;
@@ -215,14 +209,20 @@ function checkCollisions() {
     const dx = pCX - eCX;
     const dy = pCY - eCY;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const maxDist = (pR + eR) * 0.9;
+    const maxDist = (pR + eR);
 
     if (dist < maxDist) {
-      // contact = mort directe, pas de bouclier
-      endLevel(false);
+      handleDeath();
       return;
     }
   }
+}
+
+function handleDeath() {
+  attempts++;
+  attemptsSpan.textContent = String(attempts);
+  // on relance immédiatement le même niveau
+  startLevel(currentLevel);
 }
 
 // ----- GAME LOOP -----
@@ -241,8 +241,9 @@ function gameLoop() {
 function startLevel(level) {
   const config = getLevelConfig(level);
 
+  // on nettoie l'ancien niveau
   clearInterval(timerInterval);
-  cancelAnimationFrame(animationFrameId);
+  if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
 
   overlayMessage.textContent = "";
   overlayMessage.classList.remove("visible");
@@ -264,75 +265,18 @@ function startLevel(level) {
     ? `Niveau ${level} — Survis ${config.duration}s (déplace la boule avec ton doigt).`
     : `Niveau ${level} — Survis ${config.duration}s (flèches du clavier).`;
 
+  // timer : quand le temps arrive à 0, on passe direct au niveau suivant
   timerInterval = setInterval(() => {
     if (!gameRunning) return;
     timeLeft--;
     timeSpan.textContent = String(timeLeft);
     if (timeLeft <= 0) {
-      endLevel(true);
+      currentLevel = Math.min(MAX_LEVEL, currentLevel + 1);
+      startLevel(currentLevel);
     }
   }, 1000);
 
   animationFrameId = requestAnimationFrame(gameLoop);
-}
-
-function endLevel(success) {
-  if (!gameRunning) return;
-  gameRunning = false;
-  clearInterval(timerInterval);
-  cancelAnimationFrame(animationFrameId);
-
-  let msg = "";
-
-  if (success) {
-    if (currentLevel < MAX_LEVEL) currentLevel++;
-
-    const wins = [
-      "EZ clap 🔥",
-      "Tu l’as fumé ce niveau 😂",
-      "Winnnn 🥶",
-      "Le skill est certifié validé 💪",
-      "SIGMA MOVE 😈",
-      "Autoroute du talent 🚀",
-      "Arcade Dodge commence à te respecter.",
-      "Ok, t’es officiellement chaud·e."
-    ];
-    msg = wins[Math.floor(Math.random() * wins.length)];
-
-    messageP.textContent = msg;
-    overlayMessage.textContent = msg;
-    overlayMessage.classList.add("visible");
-
-    if (currentLevel > MAX_LEVEL) currentLevel = MAX_LEVEL;
-
-    startBtn.disabled = false;
-    startBtn.textContent =
-      currentLevel >= MAX_LEVEL ? "Rejouer au niveau 1" : "Niveau suivant";
-  } else {
-    attempts++;
-    attemptsSpan.textContent = String(attempts);
-
-    const loses = [
-      "😱 skill issue",
-      "💀 retour lobby",
-      "Touché… Tu dois recommencer ce niveau. 😈",
-      "Tu t'es fait clip 4K 📹",
-      "Ratio par une boule 🤡",
-      "Encore ? 😭",
-      "Le mental est où là ? 🤨",
-      "Dash droit dans l’ennemi 😂",
-      "BOOM fin de run 💥",
-      "Game Over mais avec style 💅"
-    ];
-    msg = loses[Math.floor(Math.random() * loses.length)];
-
-    messageP.textContent = msg;
-    overlayMessage.textContent = msg;
-    overlayMessage.classList.add("visible");
-
-    startBtn.disabled = false;
-    startBtn.textContent = "Recommencer le niveau";
-  }
 }
 
 // ----- EVENTS -----
@@ -360,11 +304,11 @@ gameArea.addEventListener(
   { passive: false }
 );
 
+// Clic sur START : reset complet et lancement niveau 1
 startBtn.addEventListener("click", () => {
-  if (startBtn.textContent.includes("Rejouer au niveau 1")) {
-    currentLevel = 1;
-  }
-  startBtn.disabled = true;
+  currentLevel = 1;
+  attempts = 0;
+  attemptsSpan.textContent = "0";
   startLevel(currentLevel);
 });
 
@@ -376,6 +320,8 @@ window.addEventListener("load", () => {
   attemptsSpan.textContent = String(attempts);
   messageP.textContent = "Clique sur START pour commencer au niveau 1.";
 });
+
+
 
 
 
